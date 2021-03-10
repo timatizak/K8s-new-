@@ -2,13 +2,19 @@
 - name: Check ansible version
   import_playbook: ansible_version.yml
 
+- hosts: all
+  any_errors_fatal: "{{ any_errors_fatal | default(true) }}"
+  gather_facts: false
+  environment: "{{ proxy_disable_env }}"
+  roles:
+    - { role: kubespray-defaults }
+
 - hosts: k8s-cluster:etcd
   strategy: linear
   any_errors_fatal: "{{ any_errors_fatal | default(true) }}"
   gather_facts: false
   environment: "{{ proxy_disable_env }}"
   roles:
-    - { role: kubespray-defaults }
     - { role: bootstrap-os, tags: bootstrap-os}
 
 - name: Gather facts
@@ -20,7 +26,6 @@
   any_errors_fatal: "{{ any_errors_fatal | default(true) }}"
   environment: "{{ proxy_disable_env }}"
   roles:
-    - { role: kubespray-defaults }
     - { role: kubernetes/preinstall, tags: preinstall }
     - { role: "container-engine", tags: "container-engine", when: deploy_container_engine|default(true) }
     - { role: download, tags: download, when: "not skip_downloads" }
@@ -30,7 +35,6 @@
   any_errors_fatal: "{{ any_errors_fatal | default(true) }}"
   environment: "{{ proxy_disable_env }}"
   roles:
-    - { role: kubespray-defaults }
     - role: etcd
       tags: etcd
       vars:
@@ -41,3 +45,75 @@
 - hosts: k8s-cluster
   gather_facts: False
   any_errors_fatal: "{{ any_errors_fatal | default(true) }}"
+   environment: "{{ proxy_disable_env }}"
+  roles:
+    - role: etcd
+      tags: etcd
+      vars:
+        etcd_cluster_setup: false
+        etcd_events_cluster_setup: false
+      when: not etcd_kubeadm_enabled| default(false)
+
+- hosts: k8s-cluster
+  gather_facts: False
+  any_errors_fatal: "{{ any_errors_fatal | default(true) }}"
+  environment: "{{ proxy_disable_env }}"
+  roles:
+    - { role: kubernetes/node, tags: node }
+
+- hosts: kube-master
+  gather_facts: False
+  any_errors_fatal: "{{ any_errors_fatal | default(true) }}"
+  environment: "{{ proxy_disable_env }}"
+  roles:
+    - { role: kubernetes/control-plane, tags: master }
+    - { role: kubernetes/client, tags: client }
+    - { role: kubernetes-apps/cluster_roles, tags: cluster-roles }
+
+- hosts: k8s-cluster
+  gather_facts: False
+  any_errors_fatal: "{{ any_errors_fatal | default(true) }}"
+  environment: "{{ proxy_disable_env }}"
+  roles:
+    - { role: kubernetes/kubeadm, tags: kubeadm}
+    - { role: network_plugin, tags: network }
+    - { role: kubernetes/node-label, tags: node-label }
+
+- hosts: calico-rr
+  gather_facts: False
+  any_errors_fatal: "{{ any_errors_fatal | default(true) }}"
+  environment: "{{ proxy_disable_env }}"
+  roles:
+    - { role: network_plugin/calico/rr, tags: ['network', 'calico_rr'] }
+
+- hosts: kube-master[0]
+  gather_facts: False
+  any_errors_fatal: "{{ any_errors_fatal | default(true) }}"
+  environment: "{{ proxy_disable_env }}"
+  roles:
+    - { role: win_nodes/kubernetes_patch, tags: ["master", "win_nodes"] }
+
+- hosts: kube-master
+  gather_facts: False
+  any_errors_fatal: "{{ any_errors_fatal | default(true) }}"
+  environment: "{{ proxy_disable_env }}"
+  roles:
+    - { role: kubernetes-apps/external_cloud_controller, tags: external-cloud-controller }
+    - { role: kubernetes-apps/network_plugin, tags: network }
+    - { role: kubernetes-apps/policy_controller, tags: policy-controller }
+    - { role: kubernetes-apps/ingress_controller, tags: ingress-controller }
+    - { role: kubernetes-apps/external_provisioner, tags: external-provisioner }
+
+- hosts: kube-master
+  gather_facts: False
+  any_errors_fatal: "{{ any_errors_fatal | default(true) }}"
+  environment: "{{ proxy_disable_env }}"
+  roles:
+    - { role: kubernetes-apps, tags: apps }
+
+- hosts: k8s-cluster
+  gather_facts: False
+  any_errors_fatal: "{{ any_errors_fatal | default(true) }}"
+  environment: "{{ proxy_disable_env }}"
+  roles:
+          - { role: kubernetes/preinstall, when: "dns_mode != 'none' and resolvconf_mode == 'host_resolvconf'", tags: resolvconf, dns_late: true }
