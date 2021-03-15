@@ -1,0 +1,24 @@
+---
+- name: Check ansible version
+  import_playbook: ansible_version.yml
+
+- name: Gather facts
+  tags: always
+  import_playbook: facts.yml
+
+- hosts: kube-master
+  any_errors_fatal: "{{ any_errors_fatal | default(true) }}"
+  gather_facts: false
+  environment: "{{ proxy_disable_env }}"
+  roles:
+    - { role: kubespray-defaults }
+    - role: etcd
+      tags: etcd
+      vars:
+        etcd_cluster_setup: true
+        etcd_events_cluster_setup: "{{ etcd_events_cluster_enabled }}"
+      when: not etcd_kubeadm_enabled| default(false)
+    - { role: kubernetes/control-plane, tags: master }
+    - { role: kubernetes/client, tags: client }
+    - { role: kubernetes-apps, tags: apps }
+
