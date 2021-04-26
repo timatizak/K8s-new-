@@ -5,6 +5,16 @@
   tags:
     - always
 
+      #- name: Create directoriy
+      #file:
+      #path: /etc/kubernetes
+      #state: directory
+
+    #- name: Create directories
+    # file:
+    #path: /etc/kubernetes/manifests
+    #state: directory
+
 # do not run gather facts when bootstrap-os in roles
 - name: set fallback_ips
   import_tasks: fallback_ips.yml
